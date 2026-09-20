@@ -1,0 +1,13 @@
+{
+  "name": "hse-fire-extinguisher-app",
+  "version": "1.0.0",
+  "description": "سامانه جامع بازرسی کپسول های آتش نشانی",
+  "scripts": {
+    "build": "echo 'Build OK'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  }
+}
