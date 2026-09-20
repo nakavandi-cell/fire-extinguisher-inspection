@@ -23,8 +23,8 @@ function renderChecklist() {
       <div class="checklist-item">
         <div class="item-text">${i.text}</div>
         <div class="toggle-group">
-          <label class="toggle-label yes"><input type="radio" name="item_${i.id}" value="منطبق (بله)" required> منطبق</label>
-          <label class="toggle-label no"><input type="radio" name="item_${i.id}" value="عدم انطباق (خیر)"> عدم انطباق</label>
+          <label class="toggle-label yes"><input type="radio" name="item_${i.id}" value="منطبق" required> منطبق</label>
+          <label class="toggle-label no"><input type="radio" name="item_${i.id}" value="عدم انطباق"> عدم انطباق</label>
           <label class="toggle-label na"><input type="radio" name="item_${i.id}" value="عدم کاربرد"> عدم کاربرد</label>
         </div>
         <input type="text" id="rem_${i.id}" placeholder="شرح نقص یا اقدام اصلاحی...">
@@ -105,32 +105,63 @@ function clearAllData() { if(confirm("آیا همه داده‌های ذخیره
 
 function exportToExcel() {
   const records = getRecords();
-  if(!records.length) { alert("رکوردی جهت خروجی وجود ندارد."); return; }
-  const rows = [];
+  if (!records.length) {
+    alert("هیچ رکوردی جهت خروجی وجود ندارد.");
+    return;
+  }
+
+  // ساخت فرمت استاندارد CSV با هدرهای راست‌به‌چپ و UTF-8 BOM
+  let csvContent = "\uFEFF"; // کاراکتر BOM برای نمایش بدون به‌هم‌ریختگی حروف فارسی در اکسل
+  csvContent += "شناسه ثبت,تاریخ,زمان,نام بازرس,کد تجهیز,محل استقرار,نوع کپسول,ظرفیت,دوره بازرسی,عنوان آیتم چک لیست,وضعیت انطباق,توضیحات نقص و اقدام اصلاحی,نتیجه کلی\n";
+
   records.forEach(r => {
     r.items.forEach(it => {
-      rows.push({
-        "کد ثبت": r.id,
-        "تاریخ": r.inspDate,
-        "ساعت": r.inspTime,
-        "نام بازرس": r.inspectorName,
-        "کد تجهیز": r.equipmentTag,
-        "محل استقرار": r.location,
-        "نوع کپسول": r.extinguisherType,
-        "ظرفیت": r.capacity,
-        "دوره بازرسی": r.periodicity,
-        "عنوان آیتم": it.question,
-        "وضعیت": it.status,
-        "توضیحات نقص/اقدام": it.remarks,
-        "نتیجه کلی": r.overallStatus
-      });
+      const row = [
+        `"${r.id}"`,
+        `"${r.inspDate}"`,
+        `"${r.inspTime}"`,
+        `"${r.inspectorName}"`,
+        `"${r.equipmentTag}"`,
+        `"${r.location}"`,
+        `"${r.extinguisherType}"`,
+        `"${r.capacity}"`,
+        `"${r.periodicity}"`,
+        `"${it.question.replace(/"/g, '""')}"`,
+        `"${it.status}"`,
+        `"${it.remarks.replace(/"/g, '""')}"`,
+        `"${r.overallStatus}"`
+      ];
+      csvContent += row.join(",") + "\n";
     });
   });
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!dir'] = "rtl";
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "گزارش بازرسی کپسول");
-  XLSX.writeFile(wb, "HSE_Fire_Extinguisher_Report.xlsx");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const filename = `HSE_Fire_Inspection_${new Date().toISOString().slice(0,10)}.csv`;
+
+  // استفاده از Web Share API برای اشتراک‌گذاری مستقیم در گوشی (واتساپ، تلگرام، ایتا یا ذخیره در فایل‌ها)
+  if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: "text/csv" })] })) {
+    const file = new File([blob], filename, { type: "text/csv" });
+    navigator.share({
+      files: [file],
+      title: 'گزارش اکسل بازرسی کپسول‌ها',
+      text: 'گزارش بازرسی کپسول‌های آتشنشانی (اکسل)'
+    }).catch(() => {
+      downloadFallback(blob, filename);
+    });
+  } else {
+    downloadFallback(blob, filename);
+  }
+}
+
+function downloadFallback(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 window.onload = () => {
