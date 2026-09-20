@@ -74,6 +74,7 @@ function switchTab(t) {
     document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
     document.getElementById('history-tab').classList.add('active');
     renderRecords();
+    drawCharts();
   }
 }
 
@@ -101,48 +102,186 @@ function renderRecords(filter = "") {
 }
 
 function filterRecords() { renderRecords(document.getElementById("searchInput").value); }
-function clearAllData() { if(confirm("آیا همه داده‌های ذخیره‌شده پاک شوند؟")) { localStorage.removeItem(STORAGE_KEY); renderRecords(); } }
+function clearAllData() { if(confirm("آیا همه داده‌های ذخیره‌شده پاک شوند؟")) { localStorage.removeItem(STORAGE_KEY); renderRecords(); drawCharts(); } }
 
-function exportToExcel() {
+// تابع رسم نمودارها با استفاده از Canvas داخلی بدون نیاز به اینترنت
+function drawCharts() {
   const records = getRecords();
-  if (!records.length) {
-    alert("هیچ رکوردی جهت خروجی وجود ندارد.");
-    return;
-  }
-
-  // ساخت ساختار CSV با UTF-8 BOM
-  let csvData = "\uFEFF";
-  csvData += "شناسه ثبت,تاریخ,زمان,نام بازرس,کد تجهیز,محل استقرار,نوع کپسول,ظرفیت,دوره بازرسی,عنوان آیتم چک لیست,وضعیت انطباق,توضیحات نقص و اقدام اصلاحی,نتیجه کلی\n";
+  
+  // ۱. محاسبه آمار کل آیتم‌ها
+  let compliant = 0, nonCompliant = 0, na = 0;
+  // تفکیک ماهانه/دوره‌ای
+  let monthlyData = {};
 
   records.forEach(r => {
+    // کلید ماه (مثلاً از روی تاریخ ثبت: سه بخش اول یا پیش‌فرض)
+    let periodKey = r.inspDate.trim().slice(0, 7) || "نامشخص";
+    if (!monthlyData[periodKey]) {
+      monthlyData[periodKey] = { inspections: 0, comp: 0, nonComp: 0 };
+    }
+    monthlyData[periodKey].inspections += 1;
+
     r.items.forEach(it => {
-      const row = [
-        `"${r.id}"`,
-        `"${r.inspDate}"`,
-        `"${r.inspTime}"`,
-        `"${r.inspectorName}"`,
-        `"${r.equipmentTag}"`,
-        `"${r.location}"`,
-        `"${r.extinguisherType}"`,
-        `"${r.capacity}"`,
-        `"${r.periodicity}"`,
-        `"${it.question.replace(/"/g, '""')}"`,
-        `"${it.status}"`,
-        `"${it.remarks.replace(/"/g, '""')}"`,
-        `"${r.overallStatus}"`
-      ];
-      csvData += row.join(",") + "\n";
+      if (it.status === "منطبق") { compliant++; monthlyData[periodKey].comp++; }
+      else if (it.status === "عدم انطباق") { nonCompliant++; monthlyData[periodKey].nonComp++; }
+      else { na++; }
     });
   });
 
-  // استفاده از Data URI که در WebView اندروید بدون مسدودی دانلود می‌شود
-  const encodedUri = "data:text/csv;charset=utf-8," + encodeURIComponent(csvData);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", `HSE_Fire_Report_${new Date().getTime().toString().slice(-4)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  drawDonutChart(compliant, nonCompliant, na);
+  drawBarChart(monthlyData);
+}
+
+// رسم نمودار دایره‌ای
+function drawDonutChart(comp, nonComp, na) {
+  const canvas = document.getElementById("donutChart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const total = comp + nonComp + na;
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = 80;
+
+  if (total === 0) {
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 24;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "13px Vazirmatn, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("داده‌ای ثبت نشده", centerX, centerY + 5);
+    return;
+  }
+
+  const data = [
+    { value: comp, color: "#22c55e" },
+    { value: nonComp, color: "#ef4444" },
+    { value: na, color: "#94a3b8" }
+  ];
+
+  let currentAngle = -0.5 * Math.PI;
+  ctx.lineWidth = 26;
+
+  data.forEach(slice => {
+    if (slice.value === 0) return;
+    const sliceAngle = (slice.value / total) * 2 * Math.PI;
+    ctx.strokeStyle = slice.color;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
+    ctx.stroke();
+    currentAngle += sliceAngle;
+  });
+
+  // درصد انطباق در مرکز
+  const complianceRate = Math.round((comp / (comp + nonComp || 1)) * 100);
+  ctx.fillStyle = "#1e293b";
+  ctx.font = "bold 20px Vazirmatn, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(complianceRate + "%", centerX, centerY + 2);
+  ctx.font = "11px Vazirmatn, sans-serif";
+  ctx.fillStyle = "#64748b";
+  ctx.fillText("نرخ انطباق", centerX, centerY + 20);
+}
+
+// رسم نمودار میله‌ای مقایسه‌ای
+function drawBarChart(monthlyData) {
+  const canvas = document.getElementById("barChart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const keys = Object.keys(monthlyData).slice(-4); // نمایش نهایتاً ۴ دوره اخیر
+  if (keys.length === 0) {
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "13px Vazirmatn, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("داده‌ای جهت نمایش نمودار ماهانه وجود ندارد", canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  let maxVal = 1;
+  keys.forEach(k => {
+    const d = monthlyData[k];
+    maxVal = Math.max(maxVal, d.inspections, d.comp, d.nonComp);
+  });
+
+  const chartBottom = canvas.height - 30;
+  const chartHeight = canvas.height - 60;
+  const groupWidth = canvas.width / keys.length;
+  const barWidth = 14;
+
+  keys.forEach((key, i) => {
+    const d = monthlyData[key];
+    const groupCenter = (i * groupWidth) + (groupWidth / 2);
+
+    const hTotal = (d.inspections / maxVal) * chartHeight;
+    const hComp = (d.comp / maxVal) * chartHeight;
+    const hNonComp = (d.nonComp / maxVal) * chartHeight;
+
+    // میله ۱: کل بازرسی (آبی)
+    ctx.fillStyle = "#3b82f6";
+    ctx.fillRect(groupCenter - barWidth * 1.6, chartBottom - hTotal, barWidth, hTotal);
+
+    // میله ۲: منطبق (سبز)
+    ctx.fillStyle = "#22c55e";
+    ctx.fillRect(groupCenter - barWidth * 0.5, chartBottom - hComp, barWidth, hComp);
+
+    // میله ۳: عدم انطباق (قرمز)
+    ctx.fillStyle = "#ef4444";
+    ctx.fillRect(groupCenter + barWidth * 0.6, chartBottom - hNonComp, barWidth, hNonComp);
+
+    // برچسب پایین (نام دوره/ماه)
+    ctx.fillStyle = "#475569";
+    ctx.font = "11px Vazirmatn, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(key, groupCenter, canvas.height - 10);
+  });
+}
+
+function exportToExcel() {
+  const records = getRecords();
+  if (!records.length) { alert("هیچ رکوردی جهت خروجی وجود ندارد."); return; }
+
+  let csvData = "\uFEFFشناسه ثبت,تاریخ,زمان,نام بازرس,کد تجهیز,محل استقرار,نوع کپسول,ظرفیت,دوره بازرسی,عنوان آیتم چک لیست,وضعیت انطباق,توضیحات نقص و اقدام اصلاحی,نتیجه کلی\n";
+
+  records.forEach(r => {
+    r.items.forEach(it => {
+      csvData += `"${r.id}","${r.inspDate}","${r.inspTime}","${r.inspectorName}","${r.equipmentTag}","${r.location}","${r.extinguisherType}","${r.capacity}","${r.periodicity}","${it.question.replace(/"/g, '""')}","${it.status}","${it.remarks.replace(/"/g, '""')}","${r.overallStatus}"\n`;
+    });
+  });
+
+  showExportModal(csvData);
+}
+
+function showExportModal(text) {
+  const existing = document.getElementById('exportModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'exportModal';
+  modal.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;flex-direction:column;padding:20px;box-sizing:border-box;";
+  
+  modal.innerHTML = `
+    <h3 style="color:white;text-align:center;margin-top:10px;font-size:16px;">گزارش متنی جهت انتقال به اکسل</h3>
+    <p style="color:#cbd5e1;font-size:12px;text-align:center;">متن زیر را کپی کرده و در Saved Messages تلگرام یا یادداشت بفرستید:</p>
+    <textarea id="csvOutput" style="flex:1;width:100%;border-radius:8px;padding:10px;font-size:12px;direction:ltr;" readonly>${text}</textarea>
+    <div style="display:flex;gap:10px;margin-top:15px;">
+      <button onclick="copyToClipboard()" style="flex:1;padding:14px;background:#22c55e;color:white;border:none;border-radius:8px;font-weight:bold;font-size:14px;">📋 کپی متن گزارش</button>
+      <button onclick="this.parentElement.parentElement.remove()" style="flex:1;padding:14px;background:#ef4444;color:white;border:none;border-radius:8px;font-size:14px;">بستن</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function copyToClipboard() {
+  const textArea = document.getElementById("csvOutput");
+  textArea.select();
+  document.execCommand('copy');
+  alert("✅ متن گزارش کپی شد! می‌توانید آن را در تلگرام، واتساپ یا نوت گوشی Paste کنید.");
 }
 
 window.onload = () => {
