@@ -110,9 +110,9 @@ function exportToExcel() {
     return;
   }
 
-  // ساخت فرمت استاندارد CSV با هدرهای راست‌به‌چپ و UTF-8 BOM
-  let csvContent = "\uFEFF"; // کاراکتر BOM برای نمایش بدون به‌هم‌ریختگی حروف فارسی در اکسل
-  csvContent += "شناسه ثبت,تاریخ,زمان,نام بازرس,کد تجهیز,محل استقرار,نوع کپسول,ظرفیت,دوره بازرسی,عنوان آیتم چک لیست,وضعیت انطباق,توضیحات نقص و اقدام اصلاحی,نتیجه کلی\n";
+  // ساخت ساختار CSV با UTF-8 BOM
+  let csvData = "\uFEFF";
+  csvData += "شناسه ثبت,تاریخ,زمان,نام بازرس,کد تجهیز,محل استقرار,نوع کپسول,ظرفیت,دوره بازرسی,عنوان آیتم چک لیست,وضعیت انطباق,توضیحات نقص و اقدام اصلاحی,نتیجه کلی\n";
 
   records.forEach(r => {
     r.items.forEach(it => {
@@ -131,37 +131,18 @@ function exportToExcel() {
         `"${it.remarks.replace(/"/g, '""')}"`,
         `"${r.overallStatus}"`
       ];
-      csvContent += row.join(",") + "\n";
+      csvData += row.join(",") + "\n";
     });
   });
 
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const filename = `HSE_Fire_Inspection_${new Date().toISOString().slice(0,10)}.csv`;
-
-  // استفاده از Web Share API برای اشتراک‌گذاری مستقیم در گوشی (واتساپ، تلگرام، ایتا یا ذخیره در فایل‌ها)
-  if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: "text/csv" })] })) {
-    const file = new File([blob], filename, { type: "text/csv" });
-    navigator.share({
-      files: [file],
-      title: 'گزارش اکسل بازرسی کپسول‌ها',
-      text: 'گزارش بازرسی کپسول‌های آتشنشانی (اکسل)'
-    }).catch(() => {
-      downloadFallback(blob, filename);
-    });
-  } else {
-    downloadFallback(blob, filename);
-  }
-}
-
-function downloadFallback(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // استفاده از Data URI که در WebView اندروید بدون مسدودی دانلود می‌شود
+  const encodedUri = "data:text/csv;charset=utf-8," + encodeURIComponent(csvData);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `HSE_Fire_Report_${new Date().getTime().toString().slice(-4)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 window.onload = () => {
