@@ -3,120 +3,203 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>بازرسی کپسول های آتش نشانی</title>
+  <title>سیستم بازرسی کپسول‌های آتشنشانی</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    .analytics-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border: 1px solid #e2e8f0;
+    }
+    .chart-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chart-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    .chart-legend {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 10px;
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+  </style>
 </head>
 <body>
   <div class="app-container">
-    <header class="main-header">
-      <h1>🧯 سامانه بازرسی کپسول‌های آتشنشانی</h1>
-      <p class="subtitle">ثبت و پایش بازرسی‌های دوره‌ای HSE</p>
+    <header class="header">
+      <div class="header-icon">🧯</div>
+      <div>
+        <h2>سامانه بازرسی کپسول‌های آتشنشانی</h2>
+        <p>HSE Fire Safety Inspection System</p>
+      </div>
     </header>
 
     <nav class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('new-inspection')">📝 ثبت بازرسی جدید</button>
-      <button class="tab-btn" onclick="switchTab('history')">📋 تاریخچه و گزارش‌ها</button>
+      <button class="tab-btn active" onclick="switchTab('new-inspection')">ثبت بازرسی جدید</button>
+      <button class="tab-btn" onclick="switchTab('history')">تاریخچه و نمودارها</button>
     </nav>
 
+    <!-- تب ثبت بازرسی جدید -->
     <main id="new-inspection-tab" class="tab-content active">
       <form id="inspectionForm" onsubmit="saveInspection(event)">
-        <div class="card">
-          <h2 class="card-title">📌 اطلاعات شناسنامه‌ای و هدر بازدید</h2>
+        <section class="form-card">
+          <div class="card-title">مشخصات و شناسنامه تجهیز</div>
           <div class="form-grid">
             <div class="form-group">
-              <label>تاریخ بازدید (شمسی):</label>
-              <input type="text" id="inspDate" placeholder="مثال: ۱۴۰۳/۰۶/۲۵" required>
+              <label>تاریخ بازرسی (شمسی/میلادی):</label>
+              <input type="text" id="inspDate" placeholder="مثال: ۱۴۰۵/۰۱/۱۵" required>
             </div>
             <div class="form-group">
-              <label>زمان بازدید:</label>
+              <label>ساعت بازرسی:</label>
               <input type="time" id="inspTime" required>
             </div>
             <div class="form-group">
-              <label>نام و نام خانوادگی بازرس:</label>
+              <label>نام و نام‌خانوادگی بازرس:</label>
               <input type="text" id="inspectorName" placeholder="نام کارشناس HSE" required>
             </div>
             <div class="form-group">
-              <label>کد تجهیز (Equipment Tag):</label>
-              <input type="text" id="equipmentTag" placeholder="مثال: FE-UNIT1-012" required>
+              <label>کد / تگ کپسول (Tag No):</label>
+              <input type="text" id="equipmentTag" placeholder="مثال: EXT-POY-012" required>
             </div>
             <div class="form-group">
-              <label>محل دقیق استقرار / واحد:</label>
-              <input type="text" id="location" placeholder="مثال: سالن تولید - ستون ۱۲" required>
+              <label>محل استقرار / واحد / سالن:</label>
+              <input type="text" id="location" placeholder="مثال: سالن تکسچرایزینگ، خط ۳" required>
             </div>
             <div class="form-group">
-              <label>نوع کپسول آتشنشانی:</label>
+              <label>نوع کپسول:</label>
               <select id="extinguisherType" required>
-                <option value="">-- انتخاب کنید --</option>
-                <option value="پودر و گاز">پودر و گاز</option>
-                <option value="CO2">دی‌اکسید کربن (CO2)</option>
-                <option value="آب و گاز">آب و گاز</option>
-                <option value="فوم">فوم</option>
-                <option value="سایر">سایر</option>
+                <option value="پودر و گاز (ABC)">پودر و گاز (ABC)</option>
+                <option value="دی‌اکسید کربن (CO2)">دی‌اکسید کربن (CO2)</option>
+                <option value="آب و گاز (Water)">آب و گاز (Water)</option>
+                <option value="فوم (Foam)">فوم (Foam)</option>
+                <option value="هالوژن / ماده پاک">هالوژن / ماده پاک</option>
               </select>
             </div>
             <div class="form-group">
-              <label>ظرفیت / وزن (کیلوگرم/لیتر):</label>
-              <input type="text" id="capacity" placeholder="مثال: ۶ کیلوگرم" required>
+              <label>ظرفیت کپسول:</label>
+              <select id="capacity" required>
+                <option value="۶ کیلوگرم">۶ کیلوگرم</option>
+                <option value="۱۲ کیلوگرم">۱۲ کیلوگرم</option>
+                <option value="۴ کیلوگرم">۴ کیلوگرم</option>
+                <option value="۲ کیلوگرم">۲ کیلوگرم</option>
+                <option value="۵۰ کیلوگرم (چرخدار)">۵۰ کیلوگرم (چرخدار)</option>
+                <option value="سایر">سایر</option>
+              </select>
             </div>
             <div class="form-group">
               <label>دوره بازرسی:</label>
               <select id="periodicity" required>
                 <option value="ماهانه">ماهانه</option>
-                <option value="هفتگی">هفتگی</option>
-                <option value="فصلی">فصلی</option>
+                <option value="فصلی (۳ ماهه)">فصلی (۳ ماهه)</option>
+                <option value="شش‌ماهه">شش‌ماهه</option>
                 <option value="سالانه">سالانه</option>
-                <option value="موردی">موردی</option>
               </select>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="card">
-          <h2 class="card-title">🔍 بندها و آیتم‌های کنترلی چک‌لیست</h2>
+        <section class="form-card">
+          <div class="card-title">بندهای چک‌لیست کنترلی کپسول</div>
           <div id="checklistItemsContainer"></div>
-        </div>
+        </section>
 
-        <div class="card">
-          <h2 class="card-title">🏁 وضعیت نهایی کپسول</h2>
+        <section class="form-card">
+          <div class="card-title">نتیجه‌گیری و وضعیت نهایی کپسول</div>
           <div class="form-group">
-            <div class="status-options">
-              <label class="status-radio"><input type="radio" name="overallStatus" value="آماده به کار (OK)" required> <span>✅ آماده به کار (OK)</span></label>
-              <label class="status-radio"><input type="radio" name="overallStatus" value="نیازمند اقدام اصلاحی جزئی"> <span>⚠️ نیازمند اقدام اصلاحی جزئی</span></label>
-              <label class="status-radio"><input type="radio" name="overallStatus" value="خارج از سرویس"> <span>⛔ خارج از سرویس / نیازمند شارژ فوری</span></label>
+            <label>وضعیت نهایی تجهیز:</label>
+            <div class="toggle-group" style="margin-top:6px;">
+              <label class="toggle-label yes"><input type="radio" name="overallStatus" value="آماده به کار و تایید" checked> آماده به‌کار و تایید</label>
+              <label class="toggle-label no"><input type="radio" name="overallStatus" value="نیازمند اقدام / غیرفعال"> نیازمند اقدام / از مدار خارج</label>
             </div>
           </div>
           <div class="form-group" style="margin-top:10px;">
-            <label>توضیحات تکمیلی و جمع‌بندی بازرس:</label>
-            <textarea id="overallRemarks" rows="3" placeholder="توضیحات کلی..."></textarea>
+            <label>اقدام اصلاحی لازم / ملاحظات کلی بازرس:</label>
+            <textarea id="overallRemarks" rows="2" placeholder="توضیحات تکمیلی یا اقدامات لازم جهت رفع نقص..."></textarea>
           </div>
-        </div>
+        </section>
 
-        <button type="submit" class="btn btn-primary">💾 ثبت و ذخیره بازرسی</button>
+        <button type="submit" class="submit-btn">💾 ثبت نهایی بازرسی</button>
       </form>
     </main>
 
+    <!-- تب تاریخچه و گزارش نموداری -->
     <main id="history-tab" class="tab-content">
-      <div class="stats-grid">
+      <!-- بخش کارت‌های آماری -->
+      <div class="stats-overview">
         <div class="stat-card">
-          <span class="stat-title">کل بازرسی‌ها</span>
-          <span class="stat-value" id="totalInspectionsCount">۰</span>
+          <div class="stat-number" id="totalInspectionsCount">۰</div>
+          <div class="stat-label">کل بازرسی‌های ثبت‌شده</div>
         </div>
         <div class="stat-card">
-          <span class="stat-title">موارد عدم انطباق</span>
-          <span class="stat-value text-danger" id="totalNonConformCount">۰</span>
+          <div class="stat-number danger" id="totalNonConformCount">۰</div>
+          <div class="stat-label">عدم‌انطباق‌های مشاهده‌شده</div>
         </div>
       </div>
-      <div class="card">
-        <input type="text" id="searchInput" placeholder="جستجو بر اساس کد تجهیز، نام بازرس، محل..." oninput="filterRecords()">
-        <div style="display:flex; gap:8px; margin-top:8px;">
-          <button class="btn btn-excel" onclick="exportToExcel()">📊 خروجی تجمیعی اکسل (RTL)</button>
-          <button class="btn btn-danger-outline" onclick="clearAllData()">🗑️ پاکسازی داده‌ها</button>
+
+      <!-- بخش نمودارهای تحلیلی مخصوص اسکرین شات -->
+      <div class="analytics-card">
+        <div class="chart-title">📊 وضعیت کلی انطباق چک‌لیست‌ها</div>
+        <div class="chart-container">
+          <canvas id="donutChart" width="220" height="220"></canvas>
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><span class="legend-color" style="background:#22c55e;"></span><span>منطبق</span></div>
+          <div class="legend-item"><span class="legend-color" style="background:#ef4444;"></span><span>عدم انطباق</span></div>
+          <div class="legend-item"><span class="legend-color" style="background:#94a3b8;"></span><span>عدم کاربرد</span></div>
         </div>
       </div>
+
+      <div class="analytics-card">
+        <div class="chart-title">📈 روند بازرسی‌ها و عدم انطباق‌ها به تفکیک دوره/ماه</div>
+        <div class="chart-container" style="overflow-x:auto;">
+          <canvas id="barChart" width="340" height="200"></canvas>
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><span class="legend-color" style="background:#3b82f6;"></span><span>کل بازرسی</span></div>
+          <div class="legend-item"><span class="legend-color" style="background:#22c55e;"></span><span>منطبق</span></div>
+          <div class="legend-item"><span class="legend-color" style="background:#ef4444;"></span><span>عدم انطباق</span></div>
+        </div>
+      </div>
+
+      <div class="filter-box">
+        <input type="text" id="searchInput" placeholder="جستجو بر اساس تگ کپسول، نام بازرس، واحد..." oninput="filterRecords()">
+        <button class="export-btn" onclick="exportToExcel()">📋 دریافت متن خروجی اکسل</button>
+      </div>
+
       <div id="recordsList"></div>
+
+      <div style="margin-top:20px;text-align:center;">
+        <button onclick="clearAllData()" style="background:transparent;border:1px solid #cbd5e1;color:#64748b;padding:6px 12px;border-radius:6px;font-size:12px;">حذف تمام اطلاعات</button>
+      </div>
     </main>
   </div>
+
   <script src="app.js"></script>
 </body>
 </html>
